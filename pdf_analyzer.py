@@ -102,7 +102,7 @@ class PDFAnalyzer:
                             if full_line_text and len(full_line_text) > 1:
                                 block_lines.append({
                                     "text": full_line_text,
-                                    "page": page_num + 1,
+                                    "page": page_num,  # 0-based indexing
                                     "font": line_font,
                                     "size": line_size,
                                     "flags": line_flags,
@@ -202,7 +202,7 @@ class PDFAnalyzer:
         candidates = []
         
         # Look for title candidates primarily on the first page
-        first_page_blocks = [block for block in text_blocks if block["page"] == 1]
+        first_page_blocks = [block for block in text_blocks if block["page"] == 0]
         
         # Sort blocks by Y position to process from top to bottom
         first_page_blocks.sort(key=lambda x: x["bbox"][1])
@@ -586,7 +586,7 @@ class PDFAnalyzer:
         
         return score >= 3
 
-    def _determine_semantic_heading_level(self, block: Dict, h1_thresh: float, h2_thresh: float, h3_thresh: float, font_stats: Dict) -> str:
+    def _determine_semantic_heading_level(self, block: Dict, h1_thresh: float, h2_thresh: float, h3_thresh: float, font_stats: Dict) -> str | None:
         """Determine heading level with semantic context."""
         font_size = block["size"]
         text = block["text"].strip()
