@@ -4,13 +4,6 @@ import logging
 from collections import defaultdict
 from typing import List, Dict, Optional, Tuple
 
-# Import ML classifier for enhanced accuracy
-try:
-    from ml_classifier import DocumentStructureClassifier, initialize_classifier
-    ML_AVAILABLE = True
-except ImportError:
-    ML_AVAILABLE = False
-
 class PDFAnalyzer:
     """
     PDF analyzer that extracts titles and hierarchical headings from PDF documents.
@@ -19,16 +12,6 @@ class PDFAnalyzer:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        
-        # Initialize ML classifier if available
-        self.ml_classifier = None
-        if ML_AVAILABLE:
-            try:
-                self.ml_classifier = initialize_classifier()
-                self.logger.info("ML classifier initialized successfully")
-            except Exception as e:
-                self.logger.warning(f"Failed to initialize ML classifier: {e}")
-                self.ml_classifier = None
         
     def analyze_pdf(self, pdf_path: str) -> Optional[Dict]:
         """
@@ -215,7 +198,7 @@ class PDFAnalyzer:
         }
 
     def _extract_title(self, text_blocks: List[Dict], font_stats: Dict) -> str:
-        """Extract document title using hybrid rule-based and ML approach."""
+        """Extract document title using semantic analysis and multi-line detection."""
         candidates = []
         
         # Look for title candidates primarily on the first page
@@ -231,60 +214,31 @@ class PDFAnalyzer:
             if len(text) < 3 or self._is_likely_metadata(text):
                 continue
             
-            # Calculate rule-based score
-            rule_score = self._calculate_semantic_title_score(block, font_stats, first_page_blocks, i)
+            # Calculate title score with enhanced semantic understanding
+            score = self._calculate_semantic_title_score(block, font_stats, first_page_blocks, i)
             
-            # Get ML prediction if available
-            ml_score = 0.0
-            ml_confidence = 0.0
-            if self.ml_classifier:
-                try:
-                    is_title, confidence = self.ml_classifier.predict_title(block)
-                    if is_title:
-                        ml_score = confidence * 10  # Scale to match rule-based scoring
-                        ml_confidence = confidence
-                except Exception as e:
-                    self.logger.warning(f"ML title prediction failed: {e}")
-            
-            # Combine scores (weighted average)
-            if self.ml_classifier and ml_confidence > 0.1:
-                # Use both rule-based and ML when ML is confident
-                combined_score = (rule_score * 0.6) + (ml_score * 0.4)
-            else:
-                # Fall back to rule-based scoring
-                combined_score = rule_score
-            
-            if combined_score > 0:
+            if score > 0:
                 # Check for multi-line titles by looking at nearby blocks
                 full_title = self._reconstruct_multiline_title(block, first_page_blocks, i)
                 
                 candidates.append({
                     "text": full_title,
-                    "score": combined_score,
-                    "rule_score": rule_score,
-                    "ml_score": ml_score,
-                    "ml_confidence": ml_confidence,
+                    "score": score,
                     "page": block["page"],
                     "original_text": text
                 })
         
         if candidates:
-            # Sort by combined score and return best candidate
+            # Sort by score and return best candidate
             candidates.sort(key=lambda x: x["score"], reverse=True)
             
-            # Log the scoring for debugging
-            best = candidates[0]
-            self.logger.debug(f"Title selection: '{best['text'][:50]}...' "
-                            f"(combined={best['score']:.2f}, rule={best['rule_score']:.2f}, "
-                            f"ml={best['ml_score']:.2f}, conf={best['ml_confidence']:.2f})")
-            
             # Clean up the title
-            best_title = best["text"].strip()
+            best_title = candidates[0]["text"].strip()
             # Remove common title artifacts
             best_title = re.sub(r'^(title|document|report):\s*', '', best_title, flags=re.IGNORECASE)
             best_title = re.sub(r'\s+', ' ', best_title)  # Normalize whitespace
             
-            return best_title if len(best_title) > 3 else best["original_text"]
+            return best_title if len(best_title) > 3 else candidates[0]["original_text"]
         
         # Fallback: use first substantial text from first page
         for block in first_page_blocks:
@@ -522,41 +476,13 @@ class PDFAnalyzer:
                 if len(text) < 3 or self._is_likely_metadata(text):
                     continue
                 
-                # Enhanced heading detection with context and ML
-                rule_based_heading = self._is_semantic_heading(block, font_stats, page_blocks, i)
-                
-                # Get ML prediction if available
-                ml_heading_level = None
-                ml_confidence = 0.0
-                if self.ml_classifier:
-                    try:
-                        ml_heading_level, ml_confidence = self.ml_classifier.predict_heading(block)
-                    except Exception as e:
-                        self.logger.warning(f"ML heading prediction failed: {e}")
-                
-                # Combine rule-based and ML decisions
-                is_heading = rule_based_heading
-                if self.ml_classifier and ml_confidence > 0.3:
-                    # ML override if it's confident
-                    is_heading = ml_heading_level is not None
-                
-                if is_heading:
-                    # Determine level using hybrid approach
-                    rule_level = self._determine_semantic_heading_level(
+                # Enhanced heading detection with context
+                if self._is_semantic_heading(block, font_stats, page_blocks, i):
+                    level = self._determine_semantic_heading_level(
                         block, h1_threshold, h2_threshold, h3_threshold, font_stats
                     )
                     
-                    # Choose between rule-based and ML level
-                    if ml_heading_level and ml_confidence > 0.5:
-                        # Use ML level if confident
-                        final_level = ml_heading_level
-                        self.logger.debug(f"Using ML heading level {ml_heading_level} "
-                                        f"(confidence: {ml_confidence:.2f}) for '{text[:30]}...'")
-                    else:
-                        # Use rule-based level
-                        final_level = rule_level
-                    
-                    if final_level:
+                    if level:
                         # Clean and potentially merge multi-line headings
                         clean_text = self._extract_complete_heading(block, page_blocks, i)
                         
@@ -564,7 +490,7 @@ class PDFAnalyzer:
                             # Avoid duplicate headings from title extraction
                             if not self._is_duplicate_heading(clean_text, headings):
                                 headings.append({
-                                    "level": final_level,
+                                    "level": level,
                                     "text": clean_text,
                                     "page": block["page"]
                                 })
