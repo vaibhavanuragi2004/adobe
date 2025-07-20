@@ -91,6 +91,12 @@ def analyze_pdf():
         flash('An error occurred during file upload', 'error')
         return redirect(url_for('index'))
 
+@app.route('/result')
+def result():
+    """Result page route - redirects to main page if accessed directly."""
+    flash('Please upload a PDF file to see results', 'info')
+    return redirect(url_for('index'))
+
 @app.route('/api/analyze', methods=['POST'])
 def api_analyze_pdf():
     """API endpoint for PDF analysis (returns JSON)."""
