@@ -63,18 +63,22 @@ def analyze_pdf():
         
         # Analyze the PDF
         try:
+            app.logger.info(f"Starting analysis of {filename}")
             result = analyzer.analyze_pdf(filepath)
+            app.logger.info(f"Analysis result: {result}")
             
             # Clean up uploaded file
             os.remove(filepath)
             
-            if result:
+            if result and result.get('title'):
+                app.logger.info(f"Successfully analyzed {filename}, rendering result page")
                 return render_template('result.html', 
                                      result=result, 
                                      filename=filename,
                                      json_output=json.dumps(result, indent=2),
                                      json_data=result)
             else:
+                app.logger.warning(f"Analysis returned invalid result for {filename}: {result}")
                 flash('Failed to analyze PDF. The file might be corrupted or contain no readable text.', 'error')
                 return redirect(url_for('index'))
                 

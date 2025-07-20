@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Show loading modal
         showLoadingState();
+        
+        // Allow the form to submit normally - don't prevent default
+        // The server will handle the response
     });
 
     function validateFile(file) {
@@ -59,6 +62,15 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Show loading modal
         loadingModal.show();
+    }
+
+    function resetForm() {
+        // Re-enable form elements
+        analyzeBtn.disabled = false;
+        fileInput.disabled = false;
+        
+        // Reset button text
+        analyzeBtn.innerHTML = '<i class="fas fa-search me-2"></i>Analyze PDF';
     }
 
     function showAlert(message, type) {
