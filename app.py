@@ -72,7 +72,8 @@ def analyze_pdf():
                 return render_template('result.html', 
                                      result=result, 
                                      filename=filename,
-                                     json_output=json.dumps(result, indent=2))
+                                     json_output=json.dumps(result, indent=2),
+                                     json_data=result)
             else:
                 flash('Failed to analyze PDF. The file might be corrupted or contain no readable text.', 'error')
                 return redirect(url_for('index'))

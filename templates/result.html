@@ -178,7 +178,7 @@
 
         // Download JSON file
         function downloadJSON() {
-            const jsonData = {{ json_output|tojsonfilter }};
+            const jsonData = {{ json_data|tojson }};
             const dataStr = JSON.stringify(jsonData, null, 2);
             const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
             
