@@ -1,0 +1,7 @@
+# requirements.txt
+pymupdf
+scikit-learn
+sentence-transformers
+numpy
+sumy
+nltk 
